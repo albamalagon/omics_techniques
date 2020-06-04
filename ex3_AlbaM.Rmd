@@ -1,0 +1,415 @@
+---
+title: "OMICS TECHNIQUES"
+subtitle: "Microarray Data Analysis"
+author: "Alba Malagón Márquez"
+date: "7 June 2020"
+output:
+ prettydoc::html_pretty:
+    toc: true
+    theme: architect
+    highlight: github
+    number_sections: false
+ pdf_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, cache = FALSE,
+                      echo = TRUE, warning = TRUE, message = TRUE)
+```
+
+
+# INTRODUCTION 
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+
+The objective of this report is to perform a whole study' analysis. We start it by the description of its characteristics, followed by some numerical summaries and plots, continued by the design and contrast matrices and, finally, we have also performed an analysis using a linear model approach. The data of this study is available in GEO as GSE147964 series on the following link
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE147964. 
+
+
+This report can be found here: https://github.com/albamalagon/omics_techniques.git
+
+
+
+ 
+# DESCRIPTION OF THE STUDY
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+
+<ul class="fa-ul">
+
+<li><i class="fa-li fa fa-check-square"></i>**Title**: Expression data from healthy subjects and patients with M. africanum or M. tuberculosis infection</li>
+
+<li><i class="fa-li fa fa-check-square"></i>**Identifier**: GSE147964</li>
+
+<li><i class="fa-li fa fa-check-square"></i>**Organism**: *Homo Sapiens*</li>
+
+<li><i class="fa-li fa fa-check-square"></i>**Description of the study**: A blood transcriptome analysis was performed on a set of healthy subjects and patients infected with M. africanum (MAF) or M. tuberculosis (MTB). All study participants were recruited from Mali.</li>
+ 
+<li><i class="fa-li fa fa-check-square"></i>**Experimental Design Information**:</li>
+
+<ul class="fa-ul">
+  <li><i class="fa-li fa fa-check-square"></i>**Response variable**: Gene expression</li>
+  <li><i class="fa-li fa fa-check-square"></i>**Sample size**: 	30</li>
+  <li><i class="fa-li fa fa-check-square"></i>**Experiment type**: 	Expression profiling by array</li>
+  <li><i class="fa-li fa fa-check-square"></i>1 **experimental factor** with 3 **groups**: </li>
+  <ul class="fa-ul">
+  <li><i class="fa-li fa fa-check-square"></i>10 blood from a healthy subject </li>
+  <li><i class="fa-li fa fa-check-square"></i>10 blood from a patient with M. tuberculosis infection </li>
+  <li><i class="fa-li fa fa-check-square"></i>10 blod from a patient with M. africanum infection </li>
+  </ul>
+  <li><i class="fa-li fa fa-check-square"></i>**Type of experimental design**: randomized block design</li>
+  <li><i class="fa-li fa fa-check-square"></i>**Types of replicates**: biological</li>
+</ul>
+</ul>
+
+
+These are the different samples:  
+
+| Group   | Sample   | Title | Disease Status |
+|----------|----------|------|-----------------------------|
+| group 1 | sample 1 | healthy 1 | Healthy |
+| group 1 | sample 2 | healthy 2 | Healthy |
+| group 1 | sample 3 | healthy 3 | Healthy |
+| group 1 | sample 4 | healthy 4 | Healthy |
+| group 1 | sample 5 | healthy 5 | Healthy |
+| group 1 | sample 6 | healthy 6 | Healthy |
+| group 1 | sample 7 | healthy 7 | Healthy |
+| group 1 | sample 8 | healthy 8 | Healthy |
+| group 1 | sample 9 | healthy 9 | Healthy |
+| group 1 | sample 10| healthy 10| Healthy |
+| group 2 | sample 11| MTB 1 | M. tuberculosis infection |
+| group 2 | sample 12| MTB 2 | M. tuberculosis infection |
+| group 2 | sample 13| MTB 3 | M. tuberculosis infection |
+| group 2 | sample 14| MTB 4 | M. tuberculosis infection |
+| group 2 | sample 15| MTB 5 | M. tuberculosis infection |
+| group 2 | sample 16| MTB 6 | M. tuberculosis infection |
+| group 2 | sample 17| MTB 7 | M. tuberculosis infection |
+| group 2 | sample 18| MTB 8 | M. tuberculosis infection |
+| group 2 | sample 19| MTB 9 | M. tuberculosis infection |
+| group 2 | sample 20| MTB 10| M. tuberculosis infection |
+| group 3 | sample 21| MAF 1 | M. africanum infection |
+| group 3 | sample 22| MAF 2 | M. africanum infection |
+| group 3 | sample 23| MAF 3 | M. africanum infection |
+| group 3 | sample 24| MAF 4 | M. africanum infection |
+| group 3 | sample 25| MAF 5 | M. africanum infection |
+| group 3 | sample 26| MAF 6 | M. africanum infection |
+| group 3 | sample 27| MAF 7 | M. africanum infection |
+| group 3 | sample 28| MAF 8 | M. africanum infection |
+| group 3 | sample 29| MAF 9 | M. africanum infection |
+| group 3 | sample 30| MAF 10| M. africanum infection |
+
+
+
+# DESCRIPTION OF THE DATA
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+First of all, we need to read the data and transform it into an Expression set.
+
+```{r, echo=TRUE, include=FALSE}
+library(GEOquery)
+library(Biobase)
+library(BiocGenerics)
+require(limma)
+```
+
+```{r, echo=T, error=FALSE, warning=FALSE, message=FALSE}
+mydata <- getGEO("GSE147964", GSEMatrix =TRUE, getGPL=FALSE, parseCharacteristics = TRUE)
+eset <- mydata[[1]]
+```
+
+
+We can also extract small expressionsets from the complete one. In this case, we will define a small expression set for each group: healthy subjects, subjects with the disease M. tuberculosis and a third group of subjects with the disease M. africanum.
+
+```{r}
+smallEset_group1 <- eset[,1:10] #healthy
+smallEset_group2 <- eset[,11:20] #m. tuberculosis
+smallEset_group3 <- eset[,21:30] #m. africanum
+```
+
+
+We will give a brief description of the data by analysing some numerical summaries and displaying different types of plots. 
+
+## NUMERICAL SUMMARIES
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+First of all, we need to extract the expression values from the whole ExpressionSet object. 
+
+```{r expressionData, results=FALSE}
+expression_values <- exprs(eset)
+```
+
+In order to display some statistical parameters of each sample we can use the function summary(). We obtain the minimum, the mean, the median and the maximum of the data, as well as the quartiles. We can also select only one column, which would mean that we are just analysing specific samples. 
+
+```{r, echo=FALSE}
+print("Summary of the GSM4451047 sample:")
+summary(expression_values[,"GSM4451047"]) #sample in column number 4
+```
+
+We can also do some summaries for each specific group. In this case, we will get the maximum, the mean and the minimum for each group. 
+
+GROUP 1: healthy subjects
+```{r, echo=FALSE}
+print(paste("Min:",min(exprs(smallEset_group1))))
+print(paste("Mean:",mean(exprs(smallEset_group1))))
+print(paste("Max:",max(exprs(smallEset_group1))))
+```
+
+GROUP 2: subjects with M. tuberculosis
+```{r, echo=FALSE}
+print(paste("Min:",min(exprs(smallEset_group2))))
+print(paste("Mean:",mean(exprs(smallEset_group2))))
+print(paste("Max:",max(exprs(smallEset_group2))))
+```
+
+GROUP 3: subjects with M. africanum
+```{r, echo=FALSE}
+print(paste("Min:",min(exprs(smallEset_group3))))
+print(paste("Mean:",mean(exprs(smallEset_group3))))
+print(paste("Max:",max(exprs(smallEset_group3))))
+```
+
+From this information, we can guess that the shape of the values' distribution will be skewed, as the values of the whole samples are slightly different for each sample. Hence, in order to compare the different samples, we would first need to normalize the values. 
+
+## PLOTS
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+Now we will show some plots in order to observe the same information as before, but from a graphical point of view. 
+
+
+### Histogram
+This histogram shows the distribution of expression values for all genes and samples. 
+```{r, echo=FALSE}
+hist(expression_values, main="histogram for all data", col=rainbow(32), breaks=100, xlab = 'Expression Values') #histogram for all genes
+
+```
+
+This histogram shows the distribution of expression values for a specific gene, in this case the one with probeset identifier TC0100006441.hg.1. 
+
+```{r, echo=FALSE}
+hist(expression_values["TC0100006441.hg.1",], main="histogram of TC0100006441.hg.1", col=rainbow(32), breaks=100, xlab = 'Expression Values') #histogram for a specific gene (TC0100006441.hg.1)
+```
+
+In the case of the histogram for all genes and samples, we can observe that the data is not symmetric; hence, we need to normalize the values by using the logarithm. We obtain a more symmetric distribution:
+
+```{r, echo=FALSE}
+hist(log(expression_values), main="histogram of all data normalized", col=rainbow(32), breaks=100, xlab = 'Expression Values') #histogram for all genes
+```
+
+
+### Boxplot
+
+We can also plot different boxplots for our data. 
+Each sample is colored depending on the group it belongs to.
+<ul class="fa-ul">
+  <li><i class="fa-li fa fa-check-square"></i>**Orange**: healthy subjects (group1)</li>
+  <li><i class="fa-li fa fa-check-square"></i>**Purple**: subjects with M. tuberculosis (group2)</li>
+  <li><i class="fa-li fa fa-check-square"></i>**Pink**: subjects with M. africanum (group3)</li>
+</ul>
+
+
+```{r colors, echo=FALSE}
+colors=c(rep('orange', 10), rep('purple', 10), rep("deeppink2", 10))
+```
+
+
+```{r,, echo=FALSE}
+boxplot(expression_values, main="GSE147964: boxplot of all data", col=colors, outline=FALSE, las=2)
+```
+
+By normalizing the data, we obtain the following plot:
+```{r, echo=FALSE}
+boxplot(log(expression_values), main="GSE147964: boxplot normalized", col=colors, outline=FALSE, las=2)
+```
+
+We can also make plots for each specific group. In this case we will only do it for the group of healthy individuals, and the data will be already normalized.
+
+GROUP 1: healthy subjects
+```{r, echo=FALSE}
+boxplot(log(exprs(smallEset_group1)), main="GSE147964: healthy group normalized", col="orange", outline=FALSE) #histogram normalized (healthy)
+```
+
+
+### Barplot
+
+A barplot also allows as to show graphically the expression of one gene in each of the samples. 
+
+This is an example of the expression for the first gene (probeset identifier: TC0100006432.hg.1). We can observe that the levels of expressions are not the same in each group. 
+
+```{r, echo=FALSE}
+barplot(expression_values["TC0100006432.hg.1",], main = "barplot of TC0100006432.hg.1",col=colors, las=2, horiz=TRUE) #gene 1 expressions
+```
+
+Here is the example of the expression for the gene number 16 (probeset identifier: TC0100006447.hg.1). We can observe that the levels of expressions are more or less the same in each group. 
+
+```{r, echo=FALSE}
+barplot(expression_values["TC0100006447.hg.1",], main = "barplot of TC0100006447.hg.1",col=colors, las=2, horiz=TRUE) #gene 16 expressions
+```
+
+
+### Principal Component Analysis
+
+Now we will perform a principal component analysis.
+
+```{r age, include=FALSE}
+disease <- c("H","T","A")
+pcs <- prcomp(expression_values)
+names(pcs)
+```
+
+We can plot a barplot of the deviation values of the PCA.
+
+```{r, echo=FALSE}
+barplot(pcs$sdev, col=rainbow(32), main="deviation values of the PCA")
+```
+
+Here we get a representation of the first two principal components.
+<ul class="fa-ul">
+  <li><i class="fa-li fa fa-check-square"></i>The group of healthy individuals are represented with an H.</li>
+  <li><i class="fa-li fa fa-check-square"></i>The group of individuals with M. Tuberculosis are represented with a T. </li>
+  <li><i class="fa-li fa fa-check-square"></i>The group of individuals with M. Africanum are represented with an A.</li>
+</ul>
+
+
+```{r, echo=FALSE}
+plot(pcs$rotation[,1], pcs$rotation[,2], col="red", main="Representation of first two principal components")
+text(pcs$rotation[,1], pcs$rotation[,2], disease, cex=1.3)
+```
+
+The top variable genes can be sorted. 
+
+```{r, echo=FALSE}
+genes <- rownames(expression_values)
+variab <- apply(expression_values, 1, sd)
+orderedGenes <- genes[order(variab, decreasing=TRUE)]
+head(variab[order(variab, decreasing=TRUE)])
+```
+
+We can analyse the level of expression of the 3 top genes by using barplots. Its color depend on the group they belong to.
+
+TOP 1 GENE:
+```{r, echo=FALSE}
+barplot(expression_values["TC0Y00007322.hg.1",], col=colors, las=2, main="TC0Y00007322.hg.1")
+```
+
+
+TOP 2 GENE:
+```{r, echo=FALSE}
+barplot(expression_values["TC0X00010060.hg.1",], col=colors, las=2, main="TC0X00010060.hg.1")
+```
+
+
+TOP 3 GENE:
+```{r, echo=FALSE}
+barplot(expression_values["TC0Y00006632.hg.1",], col=colors, las=2, main="TC0Y00006632.hg.1")
+```
+
+As we can see, the genes are differently expressed depending on the group they belong to. 
+
+
+# COMPARISONS
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+The researchers investigated two types of diseases: M. tuberculosis infection (MTB) and M. africanum infection (MAF), and the control individuals.
+
+We will do an analysis using a linear model approach:
+
+1. Identify the experimental factors and their levels.
+2. Write down the design matrix associated with this study design.
+3. Build the contrast matrix needed to compare each disease type and the control, that is:
+<ul class="fa-ul">
+  <ul class="fa-ul">
+    <li><i class="fa-li fa fa-check-square"></i>"MTB" vs “MAF” </li>
+    <li><i class="fa-li fa fa-check-square"></i>“MTB" vs “Healthy” </li>
+    <li><i class="fa-li fa fa-check-square"></i>“MAF" vas "Healthy" </li>
+  </ul>
+</ul>
+  
+  
+Identifying the **experimental factors and their levels**:
+
+1 experimental factor with 3 groups: </li>
+  <ul class="fa-ul">
+  <li><i class="fa-li fa fa-check-square"></i>10 blood from a healthy subject </li>
+  <li><i class="fa-li fa fa-check-square"></i>10 blood from a patient with M. tuberculosis infection </li>
+  <li><i class="fa-li fa fa-check-square"></i>10 blod from a patient with M. africanum infection </li>
+  </ul>
+
+Writing down the **design matrix** associated with this study design:
+
+```{r designMatrix, echo=FALSE}
+design<-matrix(
+  c(1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1),
+  nrow=30,byrow=F)
+colnames(design) <-c("Healthy", "MTB", "MAF")
+rownames(design) <- colnames(eset)
+design
+```
+
+This is the **contrast matrix** needed to compare each disease type and the control:
+
+```{r contrastsMatrix, echo=FALSE}
+cont.matrix <- makeContrasts (
+  HealthyvsMTB = MTB-Healthy,
+  HealthyvsMAF = MAF-Healthy,
+  MTBvsMAF = MAF-MTB,
+  levels=design)
+cont.matrix
+```
+
+We use the limma package to fit a linear model and estimate the constrasts:
+
+```{r fitModel}
+dataMatrix <- exprs(eset)
+fit <- lmFit(dataMatrix, design)
+fit.main <- contrasts.fit(fit, cont.matrix)
+fit.main <- eBayes(fit.main)
+```
+
+Now we proceed to generate a "topTable" for each comparison, printing a list of the most differentially expressed genes. 
+
+Healthy vs MTB:
+```{r, echo=FALSE}
+topTab_HealthyvsMTB <- topTable (fit.main, number=nrow(fit.main), coef="HealthyvsMTB", adjust="fdr"); head(topTab_HealthyvsMTB)
+```
+
+Healthy vs MAF:
+```{r, echo=FALSE}
+topTab_HealthyvsMAF <- topTable (fit.main, number=nrow(fit.main), coef="HealthyvsMAF", adjust="fdr"); head(topTab_HealthyvsMAF)
+```
+
+MTB vs MAF:
+```{r, echo=FALSE}
+topTab_MTBvsMAF  <- topTable (fit.main, number=nrow(fit.main) , coef="MTBvsMAF", adjust="fdr"); head(topTab_MTBvsMAF)
+```
+
+
+For each comparison, we will also make a vulcanoplot, which is a type of scatter-plot that is used for plotting the significance versus fold-change on the y and x axes, respectively. We will make one volcano plot for the comparison between each type of group. The top 10 genes (i.e. the first ten genes in the topTable) will be shown in the plot.
+
+Healthy vs MTB:
+```{r, echo=FALSE}
+volcanoplot(fit.main, coef="HealthyvsMTB", highlight=10, col='darkorchid2')
+```
+Healthy vs MAF:
+```{r, echo=FALSE}
+volcanoplot(fit.main, coef="HealthyvsMAF", highlight=10, col='cadetblue')
+```
+MTB vs MAF:
+```{r, echo=FALSE}
+volcanoplot(fit.main, coef="MTBvsMAF", highlight=10, col='deepskyblue3')
+```
+
+
+
+
+
+
+
+
+
+
+
